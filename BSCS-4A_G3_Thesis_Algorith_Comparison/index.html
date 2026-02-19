@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Advanced Pathfinding Algorithm Comparator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="controls">
+    <h2>Algorithm Comparator</h2>
+
+    <label>Grid Size</label>
+    <input type="number" id="gridSize" value="20" min="5" max="30">
+
+    <button onclick="generateGrid()">Generate Grid</button>
+    <button onclick="addRandomObstacles()">Random Obstacles</button>
+
+    <label>Select Algorithm</label>
+    <select id="algorithmSelect">
+        <option value="aStar">A*</option>
+        <option value="dijkstra">Dijkstra</option>
+    </select>
+
+    <label>Terrain Weight</label>
+    <input type="range" id="terrainWeight" min="1" max="10" value="1">
+
+    <button onclick="runAlgorithm()">Run Algorithm</button>
+    <button onclick="batchTest()">Batch Testing (Animated)</button>
+    <button onclick="scalabilityTest()">Scalability Test</button>
+    <button onclick="clearGrid()">Clear Grid</button>
+
+    <h3>Performance Dashboard</h3>
+    <div id="dashboard">
+        Nodes Expanded: <span id="nodes">0</span><br>
+        Path Cost: <span id="cost">0</span><br>
+        Time (ms): <span id="time">0</span>
+    </div>
+
+    <h3>Batch Results</h3>
+    <div id="batchResults">No batch tests run yet.</div>
+</div>
+
+<div id="grid-container">
+    <div id="grid"></div>
+</div>
+
+<script>
+
+let gridSize = 40;
+let gridData = [];
+let cellElements = [];
+let start = { x: 0, y: 0 };
+let end = { x: gridSize - 1, y: gridSize - 1 };
+
+function generateGrid() {
+    gridSize = parseInt(document.getElementById("gridSize").value) || 40;
+    const grid = document.getElementById("grid");
+    grid.innerHTML = "";
+    grid.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+
+    start = { x: 0, y: 0 };
+    end = { x: gridSize - 1, y: gridSize - 1 };
+
+    gridData = [];
+    cellElements = [];
+
+    for (let y = 0; y < gridSize; y++) {
+        gridData[y] = [];
+        cellElements[y] = [];
+        for (let x = 0; x < gridSize; x++) {
+            const cell = document.createElement("div");
+            cell.classList.add("cell");
+
+            if (x === start.x && y === start.y) cell.classList.add("start");
+            if (x === end.x && y === end.y) cell.classList.add("end");
+
+            cell.onclick = (e) => {
+                if (e.shiftKey) setWeightedCell(cell, x, y);
+                else toggleObstacle(cell, x, y);
+            };
+
+            grid.appendChild(cell);
+            gridData[y][x] = 0;
+            cellElements[y][x] = cell;
+        }
+    }
+}
+
+function toggleObstacle(cell, x, y) {
+    if ((x === start.x && y === start.y) || (x === end.x && y === end.y)) return;
+
+    if (gridData[y][x] === 1) {
+        gridData[y][x] = 0;
+        cell.classList.remove("obstacle");
+        delete cell.dataset.weight;
+        cell.innerText = "";
+    } else {
+        gridData[y][x] = 1;
+        cell.classList.remove("weighted");
+        cell.classList.add("obstacle");
+        delete cell.dataset.weight;
+        cell.innerText = "";
+    }
+}
+
+function setWeightedCell(cell, x, y) {
+    if ((x === start.x && y === start.y) || (x === end.x && y === end.y)) return;
+
+    const weight = parseInt(document.getElementById("terrainWeight").value);
+    gridData[y][x] = weight;
+    cell.classList.remove("obstacle");
+    cell.classList.add("weighted");
+    cell.dataset.weight = weight;
+    cell.innerText = weight;
+}
+
+function addRandomObstacles(percentage = 20) {
+    // Clear existing obstacles
+    for (let y = 0; y < gridSize; y++)
+        for (let x = 0; x < gridSize; x++)
+            if (gridData[y][x] === 1) {
+                gridData[y][x] = 0;
+                cellElements[y][x].classList.remove("obstacle");
+                delete cellElements[y][x].dataset.weight;
+                cellElements[y][x].innerText = "";
+            }
+
+    const totalCells = gridSize * gridSize;
+    const obstaclesCount = Math.floor((percentage / 100) * totalCells);
+    let placed = 0;
+
+    while (placed < obstaclesCount) {
+        const x = Math.floor(Math.random() * gridSize);
+        const y = Math.floor(Math.random() * gridSize);
+        if ((x === start.x && y === start.y) || (x === end.x && y === end.y)) continue;
+        if (gridData[y][x] === 0) {
+            gridData[y][x] = 1;
+            cellElements[y][x].classList.add("obstacle");
+            placed++;
+        }
+    }
+}
+
+function addRandomWeightedTerrain(fraction = 0.15) {
+    const totalCells = gridSize * gridSize;
+    const count = Math.floor(fraction * totalCells);
+    let placed = 0;
+    while (placed < count) {
+        const x = Math.floor(Math.random() * gridSize);
+        const y = Math.floor(Math.random() * gridSize);
+        if ((x === start.x && y === start.y) || (x === end.x && y === end.y)) continue;
+        if (gridData[y][x] === 0) {
+            const weight = Math.floor(Math.random() * 6) + 5;
+            gridData[y][x] = weight;
+            cellElements[y][x].classList.add("weighted");
+            cellElements[y][x].dataset.weight = weight;
+            cellElements[y][x].innerText = weight;
+            placed++;
+        }
+    }
+}
+
+function neighbors(x, y) {
+    const dirs = [[1,0], [-1,0], [0,1], [0,-1]];
+    return dirs.map(([dx, dy]) => ({ x: x+dx, y: y+dy }))
+               .filter(n => n.x >= 0 && n.y >= 0 && n.x < gridSize && n.y < gridSize && gridData[n.y][n.x] !== 1);
+}
+
+function getCellCost(x, y) {
+    if (gridData[y][x] === 1) return Infinity;
+    if (cellElements[y][x].classList.contains("weighted"))
+        return parseInt(cellElements[y][x].dataset.weight) || 1;
+    return 1;
+}
+
+function heuristic(a, b) {
+    return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+
+function reconstruct(cameFrom, current) {
+    const path = [];
+    while (current) {
+        path.push(current);
+        current = cameFrom[current.y]?.[current.x];
+    }
+    return path.reverse();
+}
+
+/* ---------- ORIGINAL ANIMATION (Run Algorithm) ---------- */
+async function animateDefault(visited, path) {
+    for (let node of visited) {
+        if (!(node.x === start.x && node.y === start.y) &&
+            !(node.x === end.x && node.y === end.y)) {
+            cellElements[node.y][node.x].classList.add("visited");
+        }
+        await new Promise(r => setTimeout(r, 5));
+    }
+
+    for (let node of path) {
+        if (!(node.x === start.x && node.y === start.y) &&
+            !(node.x === end.x && node.y === end.y)) {
+            cellElements[node.y][node.x].classList.remove("visited");
+            cellElements[node.y][node.x].classList.add("path");
+        }
+        await new Promise(r => setTimeout(r, 30));
+    }
+}
+
+/* ---------- COLORED ANIMATION (Batch Test) ---------- */
+async function animateColored(visited, path, visitedClass, pathClass) {
+    for (let node of visited) {
+        if (!(node.x === start.x && node.y === start.y) &&
+            !(node.x === end.x && node.y === end.y)) {
+            cellElements[node.y][node.x].classList.add(visitedClass);
+        }
+        await new Promise(r => setTimeout(r, 5));
+    }
+
+    for (let node of path) {
+        if (!(node.x === start.x && node.y === start.y) &&
+            !(node.x === end.x && node.y === end.y)) {
+            cellElements[node.y][node.x].classList.remove(visitedClass);
+            cellElements[node.y][node.x].classList.add(pathClass);
+        }
+        await new Promise(r => setTimeout(r, 30));
+    }
+}
+
+/* ---------- A* ---------- */
+async function aStar(mode="default") {
+    const open = [start];
+    const cameFrom = Array(gridSize).fill().map(() => Array(gridSize).fill(null));
+    const g = Array(gridSize).fill().map(() => Array(gridSize).fill(Infinity));
+    g[start.y][start.x] = 0;
+    const visited = [];
+
+    while (open.length) {
+        open.sort((a,b) => (g[a.y][a.x]+heuristic(a,end)) - (g[b.y][b.x]+heuristic(b,end)));
+        const current = open.shift();
+        visited.push(current);
+
+        if (current.x === end.x && current.y === end.y) {
+            const path = reconstruct(cameFrom, current);
+
+            if (mode === "default")
+                await animateDefault(visited, path);
+            else
+                await animateColored(visited, path, "visitedAStar", "pathAStar");
+
+            return { visitedCount: visited.length, pathCost: g[end.y][end.x], path };
+        }
+
+        for (let n of neighbors(current.x, current.y)) {
+            const tentative = g[current.y][current.x] + getCellCost(n.x, n.y);
+            if (tentative < g[n.y][n.x]) {
+                g[n.y][n.x] = tentative;
+                cameFrom[n.y][n.x] = current;
+                if (!open.some(o => o.x===n.x && o.y===n.y)) open.push(n);
+            }
+        }
+    }
+}
+
+/* ---------- Dijkstra ---------- */
+async function dijkstra(mode="default") {
+    const queue = [start];
+    const cameFrom = Array(gridSize).fill().map(() => Array(gridSize).fill(null));
+    const dist = Array(gridSize).fill().map(() => Array(gridSize).fill(Infinity));
+    dist[start.y][start.x] = 0;
+    const visited = [];
+
+    while (queue.length) {
+        queue.sort((a,b) => dist[a.y][a.x] - dist[b.y][b.x]);
+        const current = queue.shift();
+        visited.push(current);
+
+        if (current.x === end.x && current.y === end.y) {
+            const path = reconstruct(cameFrom, current);
+
+            if (mode === "default")
+                await animateDefault(visited, path);
+            else
+                await animateColored(visited, path, "visitedDijkstra", "pathDijkstra");
+
+            return { visitedCount: visited.length, pathCost: dist[end.y][end.x], path };
+        }
+
+        for (let n of neighbors(current.x, current.y)) {
+            const alt = dist[current.y][current.x] + getCellCost(n.x, n.y);
+            if (alt < dist[n.y][n.x]) {
+                dist[n.y][n.x] = alt;
+                cameFrom[n.y][n.x] = current;
+                if (!queue.some(o => o.x===n.x && o.y===n.y)) queue.push(n);
+            }
+        }
+    }
+}
+
+/* ---------- Run Single Algorithm ---------- */
+async function runAlgorithm() {
+    clearVisuals();
+    const algorithm = document.getElementById("algorithmSelect").value;
+    const startTime = performance.now();
+
+    let result = (algorithm === "aStar")
+        ? await aStar("default")
+        : await dijkstra("default");
+
+    const endTime = performance.now();
+    document.getElementById("nodes").innerText = result.visitedCount;
+    document.getElementById("cost").innerText = result.pathCost;
+    document.getElementById("time").innerText = `${(endTime - startTime).toFixed(2)}ms`;
+}
+
+/* ---------- Animated Batch Test ---------- */
+async function batchTest() {
+    clearVisuals();
+    const resultsDiv = document.getElementById("batchResults");
+    resultsDiv.innerText = "Running Animated Batch Test...";
+
+    const startA = performance.now();
+    const resultA = await aStar("colored");
+    const endA = performance.now();
+
+    await new Promise(r => setTimeout(r, 500));
+
+    const startD = performance.now();
+    const resultD = await dijkstra("colored");
+    const endD = performance.now();
+
+    resultsDiv.innerHTML = `
+        <strong>A* (Yellow):</strong> Nodes: ${resultA.visitedCount}, 
+        Cost: ${resultA.pathCost}, 
+        Time: ${(endA-startA).toFixed(2)}ms<br><br>
+
+        <strong>Dijkstra (Violet):</strong> Nodes: ${resultD.visitedCount}, 
+        Cost: ${resultD.pathCost}, 
+        Time: ${(endD-startD).toFixed(2)}ms
+    `;
+}
+
+function clearVisuals() {
+    for (let y = 0; y < gridSize; y++)
+        for (let x = 0; x < gridSize; x++)
+            cellElements[y][x].classList.remove(
+                "visited","path",
+                "visitedAStar","pathAStar",
+                "visitedDijkstra","pathDijkstra"
+            );
+}
+
+function clearGrid() {
+    generateGrid();
+    document.getElementById("nodes").innerText = 0;
+    document.getElementById("cost").innerText = 0;
+    document.getElementById("time").innerText = 0;
+    document.getElementById("batchResults").innerText = "No batch tests run yet.";
+}
+
+generateGrid();
+
+</script>
+
+</body>
+</html>
