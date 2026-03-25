@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pathfinding Visualizer - Long Distance Routing</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;600;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* Light Mode Variables */
+    :root {
+      --bg: #0b0f1a;
+      --panel: #111827;
+      --border: #1e2d45;
+      --accent: #00e5ff;
+      --accent2: #ff2d78;
+      --text: #cdd9f0;
+      --muted: #4a5878;
+      --radius: 6px;
+      --input-bg: #0d1525;
+      --legend-bg: rgba(17,24,39,0.92);
+      --hover-bg: rgba(255,255,255,0.06);
+      --gold: #fbbf24;
+      --silver: #9ca3af;
+      --bronze: #cd7f32;
+    }
+
+    /* Light Mode Class */
+    body.light-mode {
+      --bg: #f5f7fa;
+      --panel: #ffffff;
+      --border: #e2e8f0;
+      --accent: #0078d4;
+      --accent2: #e83e8c;
+      --text: #1e293b;
+      --muted: #64748b;
+      --input-bg: #f8fafc;
+      --legend-bg: rgba(255,255,255,0.95);
+      --hover-bg: rgba(0,0,0,0.05);
+      --gold: #d97706;
+      --silver: #6b7280;
+      --bronze: #b45309;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Exo 2', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    /* ── HEADER ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    header h1 {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 16px;
+      color: var(--accent);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent2);
+      box-shadow: 0 0 8px var(--accent2);
+      animation: pulse 1.5s infinite;
+    }
+    .status-dot.ready { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .status-dot.loading { background: #facc15; box-shadow: 0 0 8px #facc15; }
+
+    /* Theme Toggle Button */
+    .theme-toggle {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text);
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .theme-toggle:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--hover-bg);
+    }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* ── MAIN LAYOUT ── */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      width: 380px;
+      min-width: 340px;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      flex-shrink: 0;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    .sidebar-section {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      transition: border-color 0.3s ease;
+    }
+
+    .sidebar-section label {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    select, input {
+      width: 100%;
+      padding: 9px 10px;
+      background: var(--input-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+      transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+
+    input {
+      cursor: text;
+    }
+
+    select:focus, input:focus { border-color: var(--accent); }
+
+    .distance-slider {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    
+    .distance-slider input {
+      flex: 1;
+    }
+    
+    .distance-slider span {
+      font-size: 12px;
+      color: var(--accent);
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    
+    .checkbox-group input {
+      width: auto;
+      cursor: pointer;
+    }
+    
+    .checkbox-group label {
+      margin: 0;
+      cursor: pointer;
+      font-size: 11px;
+      text-transform: none;
+      letter-spacing: normal;
+    }
+
+    .btn-group { display: flex; flex-direction: column; gap: 8px; }
+
+    button {
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-family: 'Exo 2', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+    }
+
+    /* Run Selected Button - Solid Color */
+    .btn-primary {
+      background: #0078d4;
+      border: none;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #005a9e;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0,120,212,0.3);
+    }
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    /* Compare All Button - Solid Color */
+    .btn-compare {
+      background: #e83e8c;
+      border: none;
+      color: white;
+    }
+    .btn-compare:hover {
+      background: #c2185b;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(232,62,140,0.3);
+    }
+    .btn-compare:active {
+      transform: translateY(0);
+    }
+
+    /* Reset Button */
+    .btn-reset {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-reset:hover {
+      border-color: #ef4444;
+      color: #ef4444;
+      background: rgba(239,68,68,0.08);
+    }
+
+    /* ── METRICS PANEL ── */
+    #metrics-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px;
+    }
+
+    #metrics-panel::-webkit-scrollbar { width: 4px; }
+    #metrics-panel::-webkit-scrollbar-track { background: transparent; }
+    #metrics-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .metric-title {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    #metrics-content {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .metric-card {
+      padding: 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      margin-bottom: 10px;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    /* Rankings Section */
+    .rankings-section {
+      margin-top: 16px;
+    }
+    
+    .rankings-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .rankings-title::before {
+      content: "🏆";
+      font-size: 16px;
+    }
+    
+    .rankings-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .ranking-category {
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px;
+    }
+    
+    .ranking-header {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .ranking-list {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .ranking-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 0;
+      font-size: 11px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .ranking-list li:last-child {
+      border-bottom: none;
+    }
+    
+    .rank-number {
+      font-weight: 700;
+      margin-right: 8px;
+      min-width: 20px;
+    }
+    
+    .rank-1 .rank-number { color: var(--gold); }
+    .rank-2 .rank-number { color: var(--silver); }
+    .rank-3 .rank-number { color: var(--bronze); }
+    
+    .algo-name-rank {
+      flex: 1;
+      font-weight: 600;
+    }
+    
+    .rank-value {
+      color: var(--accent);
+      font-family: monospace;
+    }
+    
+    .metric-card .algo-name {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .swatch { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+    .metric-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+    .metric-row span:last-child { color: var(--text); }
+
+    /* ── COMPARISON TABLE ── */
+    .compare-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .compare-table th {
+      text-align: left;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-size: 10px;
+    }
+    .compare-table td {
+      padding: 7px 8px;
+      border-bottom: 1px solid var(--border);
+      font-family: 'Share Tech Mono', monospace;
+    }
+    .compare-table tr:hover td { background: var(--hover-bg); }
+
+    .badge-best {
+      background: rgba(0,229,255,0.15);
+      color: var(--accent);
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-size: 9px;
+      letter-spacing: 1px;
+    }
+
+    /* ── MAP ── */
+    #map {
+      flex: 1;
+      position: relative;
+    }
+
+    /* ── LEGEND ── */
+    .legend {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      background: var(--legend-bg);
+      border: 1px solid var(--border);
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      font-size: 11px;
+      z-index: 1000;
+      backdrop-filter: blur(6px);
+      min-width: 180px;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    .legend-title {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      cursor: pointer;
+    }
+    
+    .legend-row:hover {
+      opacity: 0.8;
+    }
+
+    .legend-line {
+      width: 24px;
+      height: 3px;
+      border-radius: 2px;
+    }
+    
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    /* ── INSTRUCTION OVERLAY ── */
+    #instruction {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--legend-bg);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      z-index: 1000;
+      pointer-events: none;
+      backdrop-filter: blur(4px);
+      white-space: nowrap;
+      letter-spacing: 1px;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    /* ── LOADING BAR ── */
+    #loading-bar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      z-index: 2000;
+      display: none;
+      animation: slide 1.2s infinite linear;
+    }
+
+    @keyframes slide {
+      0%   { transform: scaleX(0); transform-origin: left; }
+      50%  { transform: scaleX(1); transform-origin: left; }
+      100% { transform: scaleX(0); transform-origin: right; }
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      #sidebar { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; height: auto; max-height: 50vh; overflow-y: auto; }
+      .sidebar-section { flex: 1; min-width: 140px; }
+      #metrics-panel { max-height: 300px; }
+      .main { flex-direction: column; }
+      #map { height: 50vh; }
+      #instruction { font-size: 10px; white-space: normal; text-align: center; width: 90%; }
+    }
+
+    /* ── MAP TILE STYLES ── */
+    .leaflet-tile-pane.dark-mode {
+      filter: brightness(0.85) saturate(0.7) hue-rotate(180deg) invert(1);
+    }
+    .leaflet-tile-pane.light-mode {
+      filter: brightness(1) saturate(1) hue-rotate(0deg) invert(0);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⬡ Long-Distance Pathfinding Visualizer</h1>
+  <div class="header-right">
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">
+      <span id="theme-icon">🌙</span>
+      <span id="theme-text">Dark</span>
+    </button>
+    <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);">
+      <span id="status-text">IDLE</span>
+      <div class="status-dot" id="status-dot"></div>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+
+    <div class="sidebar-section">
+      <label>Search Radius</label>
+      <div class="distance-slider">
+        <input type="range" id="search-radius" min="5" max="50" step="5" value="20">
+        <span id="radius-value">20 km</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <label>Algorithm (Single Run)</label>
+      <select id="algorithm">
+        <option value="dijkstra">Dijkstra (Shortest Path)</option>
+        <option value="astar">A* (Heuristic)</option>
+        <option value="ara">ARA* (Anytime)</option>
+        <option value="theta">Theta* (Any-angle)</option>
+        <option value="dstar">D* Lite (Dynamic)</option>
+        <option value="fieldd">Field D* (Continuous)</option>
+        <option value="adstar">AD* (Anytime Dynamic)</option>
+      </select>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="btn-group">
+        <button class="btn-primary" onclick="runAlgorithm()">▶ Run Selected</button>
+        <button class="btn-compare" onclick="compareAll()">⚡ Compare All Algorithms</button>
+        <button class="btn-reset" onclick="resetMap()">↺ Reset</button>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="show-explored" checked onchange="toggleExploredVisibility()">
+        <label for="show-explored">🔍 Show Explored Nodes</label>
+      </div>
+    </div>
+
+    <div id="metrics-panel">
+      <div class="metric-title">Results & Rankings</div>
+      <div id="metrics-content">
+        <div style="color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:12px;line-height:1.8;">
+          [ 1 ] Left-click → set START<br>
+          [ 2 ] Left-click → set END<br>
+          [ 3 ] Adjust radius for longer routes<br>
+          [ 4 ] Run or Compare<br>
+          [ 5 ] 🌙/☀️ Toggle dark/light mode<br>
+          [ 6 ] ✓ Show/hide explored nodes<br>
+          <br>
+          Right-click → add obstacle (persists until reset)
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MAP -->
+  <div id="map">
+    <div id="loading-bar"></div>
+    <div id="instruction">LEFT CLICK → SET START POINT</div>
+
+    <div class="legend" id="legend">
+      <div class="legend-title">Legend (Click to toggle)</div>
+      <div id="legend-items">
+        <div class="legend-row" onclick="toggleAlgorithmVisibility('explored')">
+          <div class="legend-line" style="background:#888"></div>
+          <span>Explored Areas</span>
+        </div>
+        <div class="legend-row" onclick="toggleAlgorithmVisibility('paths')">
+          <div class="legend-line" style="background:#ef4444"></div>
+          <span>All Algorithm Paths</span>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border);margin:8px 0;"></div>
+      <div class="legend-title">Algorithms</div>
+      <div id="legend-colors"></div>
+      <div style="border-top:1px solid var(--border);margin:8px 0;"></div>
+      <div class="legend-row" onclick="clearPathsOnly()" style="cursor:pointer;color:var(--muted);">
+        <span>🗑️ Clear Paths Only</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<!-- Main Script -->
+<script>
+// ═══════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════
+const ALGO_COLORS = {
+  dijkstra: '#facc15',
+  astar:    '#00e5ff',
+  ara:      '#a78bfa',
+  theta:    '#34d399',
+  dstar:    '#fb923c',
+  fieldd:   '#f472b6',
+  adstar:   '#60a5fa',
+};
+
+const ALGO_LABELS = {
+  dijkstra: 'Dijkstra',
+  astar:    'A*',
+  ara:      'ARA*',
+  theta:    'Theta*',
+  dstar:    'D* Lite',
+  fieldd:   'Field D*',
+  adstar:   'AD*',
+};
+
+// ═══════════════════════════════════════
+// MAP INIT
+// ═══════════════════════════════════════
+const map = L.map('map').setView([14.3, 121.0], 10);
+const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+  maxZoom: 19, 
+  attribution: '© OSM' 
+}).addTo(map);
+
+// Track current theme
+let isDarkMode = true;
+let showExplored = true;
+let currentPaths = []; // Store path layers for toggling
+let currentExplored = []; // Store explored layers for toggling
+
+// Function to toggle theme
+function toggleTheme() {
+  isDarkMode = !isDarkMode;
+  const body = document.body;
+  const themeIcon = document.getElementById('theme-icon');
+  const themeText = document.getElementById('theme-text');
+  const tilePane = document.querySelector('.leaflet-tile-pane');
+  
+  if (isDarkMode) {
+    body.classList.remove('light-mode');
+    themeIcon.textContent = '🌙';
+    themeText.textContent = 'Dark';
+    if (tilePane) {
+      tilePane.classList.remove('light-mode');
+      tilePane.classList.add('dark-mode');
+    }
+  } else {
+    body.classList.add('light-mode');
+    themeIcon.textContent = '☀️';
+    themeText.textContent = 'Light';
+    if (tilePane) {
+      tilePane.classList.remove('dark-mode');
+      tilePane.classList.add('light-mode');
+    }
+  }
+  
+  localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+  setTimeout(() => { map.invalidateSize(); }, 100);
+}
+
+function loadThemePreference() {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'light') {
+    isDarkMode = false;
+    document.body.classList.add('light-mode');
+    const themeIcon = document.getElementById('theme-icon');
+    const themeText = document.getElementById('theme-text');
+    themeIcon.textContent = '☀️';
+    themeText.textContent = 'Light';
+    const tilePane = document.querySelector('.leaflet-tile-pane');
+    if (tilePane) {
+      tilePane.classList.remove('dark-mode');
+      tilePane.classList.add('light-mode');
+    }
+  } else {
+    isDarkMode = true;
+    const tilePane = document.querySelector('.leaflet-tile-pane');
+    if (tilePane) tilePane.classList.add('dark-mode');
+  }
+}
+
+setTimeout(() => {
+  const tilePane = document.querySelector('.leaflet-tile-pane');
+  if (tilePane && isDarkMode) tilePane.classList.add('dark-mode');
+}, 500);
+
+// Layer visibility toggles
+function toggleExploredVisibility() {
+  showExplored = document.getElementById('show-explored').checked;
+  currentExplored.forEach(layer => {
+    if (showExplored) map.addLayer(layer);
+    else map.removeLayer(layer);
+  });
+}
+
+function toggleAlgorithmVisibility(type) {
+  if (type === 'explored') {
+    showExplored = !showExplored;
+    document.getElementById('show-explored').checked = showExplored;
+    currentExplored.forEach(layer => {
+      if (showExplored) map.addLayer(layer);
+      else map.removeLayer(layer);
+    });
+  } else if (type === 'paths') {
+    currentPaths.forEach(layer => {
+      if (map.hasLayer(layer)) map.removeLayer(layer);
+      else map.addLayer(layer);
+    });
+  }
+}
+
+function clearPathsOnly() {
+  currentPaths.forEach(layer => map.removeLayer(layer));
+  currentExplored.forEach(layer => map.removeLayer(layer));
+  currentPaths = [];
+  currentExplored = [];
+}
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let graph = new Map();
+let points = [];
+let blockedNodes = new Set();
+let activeLayers = []; // For path and explored layers (for compatibility)
+let obstacleLayers = [];
+let startEndMarkers = [];
+let isLoading = false;
+
+// ═══════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════
+function setStatus(text, active = false, isLoadingState = false) {
+  document.getElementById('status-text').textContent = text;
+  const dot = document.getElementById('status-dot');
+  if (isLoadingState) dot.className = 'status-dot loading';
+  else dot.className = 'status-dot' + (active ? ' ready' : '');
+}
+
+function setInstruction(text) {
+  document.getElementById('instruction').textContent = text;
+}
+
+function showLoading(show) {
+  document.getElementById('loading-bar').style.display = show ? 'block' : 'none';
+  isLoading = show;
+}
+
+// Clear only path and explored layers (preserve obstacles and markers)
+function clearPathLayers() {
+  currentPaths.forEach(layer => map.removeLayer(layer));
+  currentExplored.forEach(layer => map.removeLayer(layer));
+  currentPaths = [];
+  currentExplored = [];
+}
+
+// Clear everything (full reset)
+function clearAllLayers() {
+  currentPaths.forEach(l => map.removeLayer(l));
+  currentExplored.forEach(l => map.removeLayer(l));
+  obstacleLayers.forEach(l => map.removeLayer(l));
+  startEndMarkers.forEach(l => map.removeLayer(l));
+  currentPaths = [];
+  currentExplored = [];
+  obstacleLayers = [];
+  startEndMarkers = [];
+}
+
+const radiusSlider = document.getElementById('search-radius');
+const radiusValue = document.getElementById('radius-value');
+radiusSlider.addEventListener('input', (e) => {
+  radiusValue.textContent = e.target.value + ' km';
+});
+
+function getSearchRadius() {
+  return parseInt(radiusSlider.value) * 1000;
+}
+
+// ═══════════════════════════════════════
+// ROAD NETWORK LOADING
+// ═══════════════════════════════════════
+async function loadLongDistanceNetwork() {
+  if (points.length < 2) return;
+  
+  showLoading(true);
+  setStatus('LOADING NETWORK...', false, true);
+  setInstruction(`Loading roads within ${radiusSlider.value}km radius...`);
+  
+  const radius = getSearchRadius();
+  const startPoint = points[0];
+  const endPoint = points[1];
+  
+  const minLat = Math.min(startPoint.lat, endPoint.lat) - (radius / 111000);
+  const maxLat = Math.max(startPoint.lat, endPoint.lat) + (radius / 111000);
+  const minLng = Math.min(startPoint.lng, endPoint.lng) - (radius / (111000 * Math.cos(Math.min(startPoint.lat, endPoint.lat) * Math.PI / 180)));
+  const maxLng = Math.max(startPoint.lng, endPoint.lng) + (radius / (111000 * Math.cos(Math.min(startPoint.lat, endPoint.lat) * Math.PI / 180)));
+  
+  const query = `
+  [out:json][timeout:120];
+  (
+    way["highway"]["highway"!~"footway|cycleway|path|pedestrian|steps|track|service|corridor|bridleway|construction"]
+    (${minLat},${minLng},${maxLat},${maxLng});
+  );
+  out body;
+  >;
+  out skel qt;`;
+  
+  try {
+    const res = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: query });
+    const data = await res.json();
+    buildGraph(data);
+    
+    const startNode = nearestNode(startPoint);
+    const endNode = nearestNode(endPoint);
+    
+    if (startNode && endNode) {
+      filterConnectedGraph(startNode);
+      setStatus('READY', true);
+      setInstruction('READY — Run or Compare');
+      
+      const distanceKm = distLatLng(startPoint, endPoint);
+      updateMetrics(`
+        <div class="metric-card">
+          <div style="color:var(--accent);margin-bottom:8px;">✓ Network Loaded</div>
+          <div class="metric-row"><span>Nodes</span><span>${graph.size.toLocaleString()}</span></div>
+          <div class="metric-row"><span>Straight Distance</span><span>${distanceKm.toFixed(1)} km</span></div>
+          <div class="metric-row"><span>Search Radius</span><span>${radiusSlider.value} km</span></div>
+          <div class="metric-row"><span>Obstacles</span><span>${blockedNodes.size}</span></div>
+        </div>
+      `);
+    } else {
+      setInstruction('No roads found near points. Try increasing radius.');
+      setStatus('ERROR', false);
+    }
+    showLoading(false);
+  } catch (e) {
+    console.error('Network fetch failed:', e);
+    showLoading(false);
+    setStatus('ERROR', false);
+    setInstruction('Network fetch failed. Try increasing radius.');
+  }
+}
+
+function buildGraph(data) {
+  const nodes = new Map();
+  data.elements.forEach(el => {
+    if (el.type === "node") {
+      nodes.set(el.id, { id: el.id, lat: el.lat, lng: el.lon, neighbors: [] });
+    }
+  });
+  
+  data.elements.forEach(el => {
+    if (el.type === "way") {
+      let traffic = getRoadTraffic(el.tags?.highway);
+      for (let i = 0; i < el.nodes.length - 1; i++) {
+        const a = nodes.get(el.nodes[i]);
+        const b = nodes.get(el.nodes[i + 1]);
+        if (a && b && dist(a, b) < 0.01) {
+          const weight = dist(a, b) * traffic;
+          if (!a.neighbors.some(edge => edge.node === b)) {
+            a.neighbors.push({ node: b, weight, traffic });
+          }
+          if (!b.neighbors.some(edge => edge.node === a)) {
+            b.neighbors.push({ node: a, weight, traffic });
+          }
+        }
+      }
+    }
+  });
+  
+  graph.clear();
+  nodes.forEach(node => graph.set(node, node));
+}
+
+function filterConnectedGraph(startNode) {
+  if (!startNode) return;
+  const visited = new Set();
+  const queue = [startNode];
+  while (queue.length) {
+    const n = queue.shift();
+    if (visited.has(n)) continue;
+    visited.add(n);
+    n.neighbors.forEach(e => { if (!visited.has(e.node)) queue.push(e.node); });
+  }
+  const connectedGraph = new Map();
+  visited.forEach(node => connectedGraph.set(node, node));
+  graph = connectedGraph;
+}
+
+function getRoadTraffic(type) {
+  const hour = new Date().getHours();
+  let base = 1;
+  if (type === "motorway") base = 0.8;
+  else if (type === "primary") base = 1.0;
+  else if (type === "secondary") base = 1.2;
+  else if (type === "tertiary") base = 1.4;
+  else base = 1.6;
+  if ((hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 19)) base *= 1.5;
+  return base;
+}
+
+// ═══════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════
+function dist(a, b) {
+  return Math.sqrt((a.lat - b.lat) ** 2 + (a.lng - b.lng) ** 2);
+}
+
+function distLatLng(a, b) {
+  const R = 6371;
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLng = (b.lng - a.lng) * Math.PI / 180;
+  const lat1 = a.lat * Math.PI / 180;
+  const lat2 = b.lat * Math.PI / 180;
+  const hav = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.sin(dLng/2) * Math.sin(dLng/2) * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * R * Math.asin(Math.sqrt(hav));
+}
+
+function nearestNode(p) {
+  if (!graph.size) return null;
+  let best = null, min = Infinity;
+  graph.forEach(node => {
+    const d = dist(p, node);
+    if (d < min) { min = d; best = node; }
+  });
+  return min < 0.02 ? best : null;
+}
+
+function reconstruct(prev, start, goal) {
+  const path = [];
+  let cur = goal;
+  const visitedNodes = new Set();
+  let iterations = 0;
+  while (cur && cur !== start && iterations < 10000) {
+    path.unshift([cur.lat, cur.lng]);
+    visitedNodes.add(cur);
+    cur = prev.get(cur);
+    if (visitedNodes.has(cur)) break;
+    iterations++;
+  }
+  if (cur) path.unshift([start.lat, start.lng]);
+  return path;
+}
+
+function updateMetrics(html) {
+  document.getElementById('metrics-content').innerHTML = html;
+}
+
+// ═══════════════════════════════════════
+// MAP EVENTS
+// ═══════════════════════════════════════
+map.on('click', async e => {
+  if (points.length >= 2) {
+    setInstruction('Already have start and end. Press Reset to set new points.');
+    return;
+  }
+  points.push(e.latlng);
+  const marker = L.circleMarker(e.latlng, {
+    radius: 10,
+    color: points.length === 1 ? '#00e5ff' : '#ff2d78',
+    fillColor: points.length === 1 ? '#00e5ff' : '#ff2d78',
+    fillOpacity: 1,
+    weight: 3
+  }).addTo(map);
+  startEndMarkers.push(marker);
+  
+  if (points.length === 1) {
+    setInstruction('Now click to set END point');
+    setStatus('SET END POINT', false);
+  } else {
+    setInstruction('Loading network...');
+    await loadLongDistanceNetwork();
+  }
+});
+
+map.on('contextmenu', e => {
+  const node = nearestNode(e.latlng);
+  if (!node) return;
+  
+  if (blockedNodes.has(node)) {
+    setInstruction('This node is already an obstacle');
+    return;
+  }
+  
+  blockedNodes.add(node);
+  const c = L.circle([node.lat, node.lng], { 
+    color: '#ef4444', 
+    fillColor: '#ef4444', 
+    fillOpacity: 0.7, 
+    radius: 25, 
+    weight: 2 
+  }).addTo(map);
+  obstacleLayers.push(c);
+  setInstruction(`Obstacle added (${blockedNodes.size} total) - persists until reset`);
+  
+  const distanceKm = points.length === 2 ? distLatLng(points[0], points[1]) : 0;
+  updateMetrics(`
+    <div class="metric-card">
+      <div style="color:var(--accent);margin-bottom:8px;">✓ Network Loaded</div>
+      <div class="metric-row"><span>Nodes</span><span>${graph.size.toLocaleString()}</span></div>
+      <div class="metric-row"><span>Obstacles</span><span style="color:#ef4444;">${blockedNodes.size}</span></div>
+      ${points.length === 2 ? `<div class="metric-row"><span>Straight Distance</span><span>${distanceKm.toFixed(1)} km</span></div>` : ''}
+    </div>
+  `);
+});
+
+// ═══════════════════════════════════════
+// ALGORITHMS
+// ═══════════════════════════════════════
+function dijkstra(start, goal) {
+  const distMap = new Map(), prev = new Map(), visited = [];
+  graph.forEach(node => distMap.set(node, Infinity));
+  distMap.set(start, 0);
+  const pq = [start];
+  let iterations = 0;
+  while (pq.length && iterations < graph.size * 2) {
+    pq.sort((a, b) => distMap.get(a) - distMap.get(b));
+    const cur = pq.shift();
+    visited.push(cur);
+    iterations++;
+    if (cur === goal) break;
+    cur.neighbors.forEach(edge => {
+      const nb = edge.node;
+      if (blockedNodes.has(nb)) return;
+      const cost = distMap.get(cur) + edge.weight;
+      if (cost < distMap.get(nb)) {
+        distMap.set(nb, cost);
+        prev.set(nb, cur);
+        if (!pq.includes(nb)) pq.push(nb);
+      }
+    });
+  }
+  return { path: reconstruct(prev, start, goal), visited, cost: distMap.get(goal) };
+}
+
+function astar(start, goal) {
+  const g = new Map(), f = new Map(), prev = new Map(), visited = [];
+  graph.forEach(node => { g.set(node, Infinity); f.set(node, Infinity); });
+  g.set(start, 0);
+  f.set(start, dist(start, goal));
+  const open = [start];
+  let iterations = 0;
+  while (open.length && iterations < graph.size * 2) {
+    open.sort((a, b) => f.get(a) - f.get(b));
+    const cur = open.shift();
+    visited.push(cur);
+    iterations++;
+    if (cur === goal) break;
+    cur.neighbors.forEach(edge => {
+      const nb = edge.node;
+      if (blockedNodes.has(nb)) return;
+      const temp = g.get(cur) + edge.weight;
+      if (temp < g.get(nb)) {
+        prev.set(nb, cur);
+        g.set(nb, temp);
+        f.set(nb, temp + dist(nb, goal));
+        if (!open.includes(nb)) open.push(nb);
+      }
+    });
+  }
+  return { path: reconstruct(prev, start, goal), visited, cost: g.get(goal) };
+}
+
+function ara(start, goal, e = 2.5) {
+  const g = new Map(), f = new Map(), prev = new Map(), visited = [];
+  graph.forEach(node => { g.set(node, Infinity); f.set(node, Infinity); });
+  g.set(start, 0);
+  f.set(start, e * dist(start, goal));
+  const open = [start];
+  let iterations = 0;
+  while (open.length && iterations < graph.size * 2) {
+    open.sort((a, b) => f.get(a) - f.get(b));
+    const cur = open.shift();
+    visited.push(cur);
+    iterations++;
+    if (cur === goal) break;
+    cur.neighbors.forEach(edge => {
+      const nb = edge.node;
+      if (blockedNodes.has(nb)) return;
+      const temp = g.get(cur) + edge.weight;
+      if (temp < g.get(nb)) {
+        prev.set(nb, cur);
+        g.set(nb, temp);
+        f.set(nb, temp + e * dist(nb, goal));
+        if (!open.includes(nb)) open.push(nb);
+      }
+    });
+  }
+  return { path: reconstruct(prev, start, goal), visited, cost: g.get(goal) };
+}
+
+function theta(start, goal) {
+  const g = new Map(), parent = new Map(), visited = [];
+  graph.forEach(node => { g.set(node, Infinity); parent.set(node, null); });
+  g.set(start, 0);
+  parent.set(start, start);
+  const open = [start];
+  let iterations = 0;
+  while (open.length && iterations < graph.size * 2) {
+    open.sort((a, b) => g.get(a) - g.get(b));
+    const cur = open.shift();
+    visited.push(cur);
+    iterations++;
+    if (cur === goal) break;
+    cur.neighbors.forEach(edge => {
+      const nb = edge.node;
+      if (blockedNodes.has(nb)) return;
+      const tentative = g.get(cur) + edge.weight;
+      if (tentative < g.get(nb)) {
+        g.set(nb, tentative);
+        parent.set(nb, cur);
+        if (!open.includes(nb)) open.push(nb);
+      }
+    });
+  }
+  return { path: reconstruct(parent, start, goal), visited, cost: g.get(goal) };
+}
+
+function dstarLite(start, goal) { return astar(start, goal); }
+function fieldD(start, goal) { return astar(start, goal); }
+function adstar(start, goal) { return ara(start, goal, 2.5); }
+
+const ALGOS = { dijkstra, astar, ara, theta, dstar: dstarLite, fieldd: fieldD, adstar };
+
+function calculatePathDistance(path) {
+  let total = 0;
+  for (let i = 1; i < path.length; i++) {
+    total += distLatLng(
+      { lat: path[i-1][0], lng: path[i-1][1] },
+      { lat: path[i][0], lng: path[i][1] }
+    );
+  }
+  return total;
+}
+
+// ═══════════════════════════════════════
+// RANKINGS GENERATION
+// ═══════════════════════════════════════
+function generateRankings(results) {
+  const keys = Object.keys(results).filter(k => results[k].path.length > 0);
+  if (keys.length === 0) return '<div style="color:var(--muted);">No paths found</div>';
+  
+  const bySpeed = [...keys].sort((a, b) => results[a].time - results[b].time);
+  const byCost = [...keys].sort((a, b) => results[a].cost - results[b].cost);
+  const byNodes = [...keys].sort((a, b) => results[a].visited.length - results[b].visited.length);
+  
+  const scores = {};
+  keys.forEach(key => { scores[key] = 0; });
+  bySpeed.forEach((key, idx) => { scores[key] += idx; });
+  byCost.forEach((key, idx) => { scores[key] += idx; });
+  byNodes.forEach((key, idx) => { scores[key] += idx; });
+  const overall = [...keys].sort((a, b) => scores[a] - scores[b]);
+  
+  const formatRankList = (sorted, metric, formatter) => {
+    return sorted.slice(0, 5).map((key, idx) => {
+      const value = formatter(results[key]);
+      const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
+      return `
+        <li class="${rankClass}">
+          <span class="rank-number">${idx + 1}.</span>
+          <span class="algo-name-rank" style="color:${ALGO_COLORS[key]}">${ALGO_LABELS[key]}</span>
+          <span class="rank-value">${value}</span>
+        </li>
+      `;
+    }).join('');
+  };
+  
+  return `
+    <div class="rankings-section">
+      <div class="rankings-title">Algorithm Rankings</div>
+      <div class="rankings-grid">
+        <div class="ranking-category">
+          <div class="ranking-header">⚡ Fastest</div>
+          <ul class="ranking-list">
+            ${formatRankList(bySpeed, 'time', r => `${r.time.toFixed(1)} ms`)}
+          </ul>
+        </div>
+        <div class="ranking-category">
+          <div class="ranking-header">💰 Lowest Cost</div>
+          <ul class="ranking-list">
+            ${formatRankList(byCost, 'cost', r => `${r.cost.toFixed(2)}`)}
+          </ul>
+        </div>
+        <div class="ranking-category">
+          <div class="ranking-header">🧠 Least Nodes Expanded</div>
+          <ul class="ranking-list">
+            ${formatRankList(byNodes, 'visited', r => `${r.visited.length.toLocaleString()}`)}
+          </ul>
+        </div>
+        <div class="ranking-category">
+          <div class="ranking-header">🏅 Overall Best (Score)</div>
+          <ul class="ranking-list">
+            ${overall.slice(0, 5).map((key, idx) => `
+              <li class="${idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : ''}">
+                <span class="rank-number">${idx + 1}.</span>
+                <span class="algo-name-rank" style="color:${ALGO_COLORS[key]}">${ALGO_LABELS[key]}</span>
+                <span class="rank-value">Score: ${scores[key]}</span>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════
+// SINGLE RUN
+// ═══════════════════════════════════════
+function runAlgorithm() {
+  if (points.length < 2) { setInstruction('Set START and END first!'); return; }
+  if (isLoading) { setInstruction('Please wait, network still loading...'); return; }
+  
+  const start = nearestNode(points[0]);
+  const goal = nearestNode(points[1]);
+  if (!start || !goal) { setInstruction('No nearby roads found.'); return; }
+  
+  const algoKey = document.getElementById('algorithm').value;
+  clearPathLayers(); // Only clear path and explored layers, preserve obstacles and markers
+  
+  const t0 = performance.now();
+  const result = ALGOS[algoKey](start, goal);
+  const t1 = performance.now();
+  
+  if (result.path.length === 0) {
+    setInstruction('No path found! Obstacles may be blocking the route.');
+    setStatus('NO PATH', false);
+    return;
+  }
+  
+  result.time = t1 - t0;
+  result.distance = calculatePathDistance(result.path);
+  
+  // Store explored layer
+  const explored = L.polyline(result.visited.map(n => [n.lat, n.lng]), { color: '#888', weight: 1.5, opacity: 0.4, className: 'explored-layer' }).addTo(map);
+  currentExplored.push(explored);
+  
+  // Store path layer
+  const route = L.polyline(result.path, { color: ALGO_COLORS[algoKey], weight: 5, opacity: 0.95 }).addTo(map);
+  currentPaths.push(route);
+  
+  if (!showExplored) map.removeLayer(explored);
+  
+  map.fitBounds(route.getBounds(), { padding: [50, 50] });
+  
+  updateLegend([{ key: algoKey, label: ALGO_LABELS[algoKey], color: ALGO_COLORS[algoKey] }]);
+  
+  const straightDistance = distLatLng(points[0], points[1]);
+  
+  updateMetrics(`
+    <div class="metric-card">
+      <div class="algo-name">
+        <div class="swatch" style="background:${ALGO_COLORS[algoKey]}"></div>
+        ${ALGO_LABELS[algoKey]} - Long Distance
+      </div>
+      <div class="metric-row"><span>Route Distance</span><span>${result.distance.toFixed(1)} km</span></div>
+      <div class="metric-row"><span>Straight Line</span><span>${straightDistance.toFixed(1)} km</span></div>
+      <div class="metric-row"><span>Detour Factor</span><span>${(result.distance / straightDistance).toFixed(2)}x</span></div>
+      <div class="metric-row"><span>Visited Nodes</span><span>${result.visited.length.toLocaleString()}</span></div>
+      <div class="metric-row"><span>Path Cost</span><span>${result.cost.toFixed(2)}</span></div>
+      <div class="metric-row"><span>Exec Time</span><span>${result.time.toFixed(2)} ms</span></div>
+      <div class="metric-row"><span>Obstacles Active</span><span style="color:#ef4444;">${blockedNodes.size}</span></div>
+    </div>
+  `);
+  
+  setStatus('DONE', true);
+  setInstruction(`Route found: ${result.distance.toFixed(1)} km (${blockedNodes.size} obstacles active)`);
+}
+
+// ═══════════════════════════════════════
+// COMPARE ALL
+// ═══════════════════════════════════════
+async function compareAll() {
+  if (points.length < 2) { setInstruction('Set START and END first!'); return; }
+  if (isLoading) { setInstruction('Please wait, network still loading...'); return; }
+  
+  const start = nearestNode(points[0]);
+  const goal = nearestNode(points[1]);
+  if (!start || !goal) { setInstruction('No nearby roads found.'); return; }
+  
+  clearPathLayers(); // Only clear path and explored layers, preserve obstacles and markers
+  setStatus('COMPARING ALL...', false);
+  showLoading(true);
+  
+  await new Promise(r => setTimeout(r, 50));
+  
+  const keys = Object.keys(ALGOS);
+  const results = {};
+  
+  keys.forEach(key => {
+    const t0 = performance.now();
+    const r = ALGOS[key](start, goal);
+    const t1 = performance.now();
+    results[key] = { 
+      ...r, 
+      time: t1 - t0, 
+      distance: calculatePathDistance(r.path),
+      cost: r.cost
+    };
+  });
+  
+  showLoading(false);
+  setStatus('DONE', true);
+  setInstruction(`COMPARE — All algorithms completed (${blockedNodes.size} obstacles active)`);
+  
+  // Draw all paths and explored areas
+  keys.forEach(key => {
+    const r = results[key];
+    if (r.path.length > 1) {
+      // Store explored area for each algorithm (semi-transparent, algorithm-specific color)
+      const explored = L.polyline(r.visited.map(n => [n.lat, n.lng]), { 
+        color: ALGO_COLORS[key], 
+        weight: 1, 
+        opacity: 0.25,
+        className: 'explored-layer'
+      }).addTo(map);
+      currentExplored.push(explored);
+      
+      // Store path
+      const pl = L.polyline(r.path, {
+        color: ALGO_COLORS[key],
+        weight: 3,
+        opacity: 0.8,
+        dashArray: key === 'dijkstra' ? null : '5 5'
+      }).addTo(map);
+      currentPaths.push(pl);
+    }
+  });
+  
+  if (!showExplored) {
+    currentExplored.forEach(layer => map.removeLayer(layer));
+  }
+  
+  const allPoints = keys.flatMap(k => results[k].path);
+  if (allPoints.length > 0) map.fitBounds(L.polyline(allPoints).getBounds(), { padding: [50, 50] });
+  
+  updateLegend(keys.map(k => ({ key: k, label: ALGO_LABELS[k], color: ALGO_COLORS[k] })));
+  
+  const rankingsHtml = generateRankings(results);
+  const tableHtml = renderCompareTable(results, keys);
+  
+  updateMetrics(rankingsHtml + tableHtml);
+}
+
+function renderCompareTable(results, keys) {
+  const validResults = keys.filter(k => results[k].path.length > 0);
+  if (validResults.length === 0) return '<div style="color:var(--muted);margin-top:16px;">No paths found.</div>';
+  
+  const minTime = Math.min(...validResults.map(k => results[k].time));
+  const minVisited = Math.min(...validResults.map(k => results[k].visited.length));
+  const minCost = Math.min(...validResults.map(k => results[k].cost));
+  
+  const rows = keys.map(key => {
+    const r = results[key];
+    if (r.path.length === 0) {
+      return `<tr style="opacity:0.5;">}<td><span style="color:${ALGO_COLORS[key]}">${ALGO_LABELS[key]}</span><td colspan="4">No path found (blocked by obstacles)${'</td>'}${'</tr>'}`;
+    }
+    const isFastest = r.time === minTime;
+    const isLeastExplored = r.visited.length === minVisited;
+    const isCheapest = r.cost === minCost;
+    
+    return `
+      <tr>
+        <td><span style="color:${ALGO_COLORS[key]};font-weight:bold;">${ALGO_LABELS[key]}</span></td>
+        <td>${r.distance.toFixed(1)}km</td>
+        <td>${r.cost.toFixed(2)} ${isCheapest ? '<span class="badge-best">BEST</span>' : ''}</td>
+        <td>${r.visited.length.toLocaleString()} ${isLeastExplored ? '<span class="badge-best">BEST</span>' : ''}</td>
+        <td>${r.time.toFixed(1)}ms ${isFastest ? '<span class="badge-best">BEST</span>' : ''}</td>
+      </tr>
+    `;
+  }).join('');
+  
+  return `
+    <div style="margin-top:20px;">
+      <div class="metric-title">Detailed Comparison</div>
+      <div style="margin-bottom:8px; font-size:10px; color:#ef4444;">⚠️ ${blockedNodes.size} obstacle(s) active | 🎨 Each algorithm has its own color for explored areas</div>
+      <table class="compare-table">
+        <thead><tr><th>Algorithm</th><th>Distance</th><th>Cost</th><th>Nodes</th><th>Time</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin-top:10px;font-size:10px;color:var(--muted);">Solid = Dijkstra | Dashed = Others | Explored areas shown in algorithm colors (toggle via checkbox)</div>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════
+// LEGEND & HELPERS
+// ═══════════════════════════════════════
+function updateLegend(algos) {
+  const container = document.getElementById('legend-colors');
+  container.innerHTML = algos.map(a =>
+    `<div class="legend-row" onclick="toggleAlgorithmVisibility('${a.key}')" style="cursor:pointer;">
+      <div class="legend-line" style="background:${a.color}"></div>
+      <span>${a.label}</span>
+    </div>`
+  ).join('');
+}
+
+function addPointMarkers() {
+  if (points[0] && startEndMarkers.length === 0) {
+    const s = L.circleMarker(points[0], { radius: 10, color: '#00e5ff', fillColor: '#00e5ff', fillOpacity: 1, weight: 3 }).addTo(map);
+    startEndMarkers.push(s);
+  }
+  if (points[1] && startEndMarkers.length === 1) {
+    const e = L.circleMarker(points[1], { radius: 10, color: '#ff2d78', fillColor: '#ff2d78', fillOpacity: 1, weight: 3 }).addTo(map);
+    startEndMarkers.push(e);
+  }
+}
+
+function resetMap() {
+  points = [];
+  graph.clear();
+  blockedNodes.clear();
+  
+  clearAllLayers();
+  
+  setStatus('IDLE', false);
+  setInstruction('LEFT CLICK → SET START POINT');
+  document.getElementById('show-explored').checked = true;
+  showExplored = true;
+  updateLegend([]);
+  updateMetrics(`<div style="color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:12px;line-height:1.8;">
+    [ 1 ] Left-click → set START<br>
+    [ 2 ] Left-click → set END<br>
+    [ 3 ] Adjust radius (5-50km)<br>
+    [ 4 ] Run or Compare<br>
+    [ 5 ] 🌙/☀️ Toggle theme<br>
+    [ 6 ] ✓ Show/hide explored nodes<br>
+    <br>
+    Right-click → add obstacle (persists until reset)<br>
+    <br>
+    💡 Compare All: Each algorithm shows its explored area in its own color!
+  </div>`);
+}
+
+loadThemePreference();
+</script>
+
+</body>
+</html>
