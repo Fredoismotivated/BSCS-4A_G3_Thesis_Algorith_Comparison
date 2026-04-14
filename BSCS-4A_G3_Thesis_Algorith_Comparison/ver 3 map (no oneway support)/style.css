@@ -1,0 +1,187 @@
+:root {
+  --bg: #0b0f1a;
+  --panel: #111827;
+  --border: #1e2d45;
+  --accent: #00e5ff;
+  --accent2: #ff2d78;
+  --text: #cdd9f0;
+  --muted: #4a5878;
+  --radius: 6px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Exo 2', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* HEADER */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+header h1 {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 16px;
+  color: var(--accent);
+  letter-spacing: 2px;
+}
+
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent2);
+  box-shadow: 0 0 8px var(--accent2);
+  animation: pulse 1.5s infinite;
+}
+
+.status-dot.ready {
+  background: var(--accent);
+}
+
+@keyframes pulse {
+  50% { opacity: 0.4; }
+}
+
+/* MAIN */
+.main {
+  display: flex;
+  flex: 1;
+}
+
+/* SIDEBAR */
+#sidebar {
+  width: 300px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-section {
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+label {
+  font-size: 10px;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 8px;
+}
+
+select {
+  width: 100%;
+  padding: 9px;
+  background: #0d1525;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* BUTTONS */
+.btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+button {
+  padding: 10px;
+  border-radius: var(--radius);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #0070b8, #00e5ff22);
+  border-color: var(--accent);
+}
+
+.btn-compare {
+  background: linear-gradient(135deg, #7c1045, #ff2d7822);
+  border-color: var(--accent2);
+  color: var(--accent2);
+}
+
+.btn-reset:hover {
+  color: red;
+}
+
+/* MAP */
+#map {
+  flex: 1;
+  position: relative;
+}
+
+/* LEGEND */
+.legend {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  background: rgba(17,24,39,0.92);
+  padding: 12px;
+  border-radius: var(--radius);
+  font-size: 11px;
+}
+
+.legend-line {
+  width: 24px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.legend-line.explored {
+  background: #888;
+}
+
+.legend-line.path {
+  background: #ef4444;
+}
+
+.divider {
+  border-top: 1px solid var(--border);
+  margin: 8px 0;
+}
+
+/* LOADING */
+#loading-bar {
+  position: absolute;
+  top: 0;
+  height: 3px;
+  width: 100%;
+  display: none;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+}
+
+/* DARK MAP FIX */
+.leaflet-tile-pane {
+  filter: brightness(0.85) invert(1);
+}
